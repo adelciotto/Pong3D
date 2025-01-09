@@ -1,0 +1,6 @@
+/home/magicbush/Code/Games/pong3d/cmake-build-debug/CMakeFiles/zpl.dir
+/home/magicbush/Code/Games/pong3d/cmake-build-debug/CMakeFiles/sokol.dir
+/home/magicbush/Code/Games/pong3d/cmake-build-debug/CMakeFiles/pong3d.dir
+/home/magicbush/Code/Games/pong3d/cmake-build-debug/CMakeFiles/shaders_all.dir
+/home/magicbush/Code/Games/pong3d/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/magicbush/Code/Games/pong3d/cmake-build-debug/CMakeFiles/rebuild_cache.dir
