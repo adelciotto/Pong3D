@@ -1,6 +1,6 @@
 @module combine_display
 
-@ctype vec2 zpl_vec2
+@ctype vec2 HMM_Vec2
 
 @vs vs
 in vec2 a_obj_position;

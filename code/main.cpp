@@ -22,8 +22,12 @@
 #include "sokol_debugtext.h"
 #include "sokol_glue.h"
 #include "sokol_log.h"
+#include "sokol_time.h"
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
 
-static constexpr f64 sims_per_second = 1.0 / 60.0;
+static constexpr double sims_per_sec = 1.0 / 60.0;
 
 struct App_State
 {
@@ -31,67 +35,78 @@ struct App_State
     Renderer renderer;
     Game game;
     Game game_temp;
-    f64 start_time;
-    f64 last_sim_time;
-    f64 accum_time;
+    uint64_t start_time;
+    uint64_t last_sim_time;
+    double accumulated_time_secs;
 };
 
 static App_State *as = nullptr;
 
 static void init()
 {
-    // TODO: Reduce pool allocation size to what's actually needed.
-    sg_desc sg_desc = {};
-    sg_desc.environment = sglue_environment();
-    sg_desc.logger.func = slog_func;
-    sg_setup(sg_desc);
+    {
+        // TODO: Reduce pool allocation size to what's actually needed.
+        sg_desc desc = {};
+        desc.environment = sglue_environment();
+        desc.logger.func = slog_func;
+        sg_setup(desc);
+    }
+    {
+        sdtx_desc_t desc = {};
+        desc.fonts[0] = sdtx_font_c64();
+        sdtx_setup(desc);
+    }
 
-    sdtx_desc_t sdtx_desc = {};
-    sdtx_desc.fonts[0] = sdtx_font_c64();
-    sdtx_setup(sdtx_desc);
+    as = static_cast<App_State *>(calloc(1, sizeof(App_State)));
 
-    as = zpl_alloc_item(zpl_heap(), App_State);
-    as->start_time = zpl_time_rel();
+    stm_setup();
+    as->start_time = stm_now();
 
-    input_init(&as->input);
-    renderer_init(&as->renderer, sapp_width(), sapp_height());
-    game_init(&as->game, &as->input, &as->renderer);
+    input_init(as->input);
+    renderer_init(as->renderer, sapp_width(), sapp_height());
+
+    time_t seconds;
+    time(&seconds);
+    game_init(as->game, as->input, as->renderer,
+              static_cast<uint32_t>(seconds));
 }
 
 static void frame()
 {
-    game_input(&as->game);
+    game_input(as->game);
 
     // At the moment the game uses the sokol provided sapp_frame_duration() for
     // it's fixed timestep simulation. This is a smoothed value over N frames.
     // Let's revisit if we should use this or a non-smoothed one we calculate
     // manually.
-    f64 frame_duration = sapp_frame_duration();
-    as->accum_time += frame_duration;
-    while (as->accum_time >= sims_per_second)
+    double frame_time_secs = sapp_frame_duration();
+    as->accumulated_time_secs += frame_time_secs;
+    while (as->accumulated_time_secs >= sims_per_sec)
     {
-        game_sim(&as->game, zpl_time_rel() - as->start_time, sims_per_second);
-        as->last_sim_time = zpl_time_rel();
-        as->accum_time -= sims_per_second;
+        double total_time_secs = stm_sec(stm_since(as->start_time));
+        game_sim(as->game, total_time_secs, sims_per_sec);
+        as->last_sim_time = stm_now();
+        as->accumulated_time_secs -= sims_per_sec;
     }
     {
-        f64 dt = zpl_time_rel() - as->last_sim_time;
-        zpl_memcopy(&as->game_temp, &as->game, sizeof(Game));
-        game_sim(&as->game_temp, zpl_time_rel() - as->start_time, dt);
-        game_draw(&as->game_temp);
+        double total_time_secs = stm_sec(stm_since(as->start_time));
+        double delta_time_secs = stm_sec(stm_since(as->last_sim_time));
+        memcpy(&as->game_temp, &as->game, sizeof(Game));
+        game_sim(as->game_temp, total_time_secs, delta_time_secs);
+        game_draw(as->game_temp);
     }
 
-    input_update(&as->input);
+    input_update(as->input);
 
-    renderer_render(&as->renderer, sglue_swapchain());
+    renderer_render(as->renderer, sglue_swapchain());
 
     // Draw some debug info.
     sdtx_canvas(sapp_widthf() * 0.5f, sapp_heightf() * 0.5f);
     sdtx_origin(2.0f, 2.0f);
     sdtx_font(0);
 
-    f64 ms_per_frame = frame_duration * 1000.0;
-    f64 fps = 1000.0 / ms_per_frame;
+    double ms_per_frame = frame_time_secs * 1000.0;
+    double fps = 1000.0 / ms_per_frame;
     sdtx_printf("%.3fms/f\n", ms_per_frame);
     sdtx_crlf();
     sdtx_printf("%.1f FPS", fps);
@@ -108,7 +123,7 @@ static void frame()
 
 static void cleanup()
 {
-    zpl_free(zpl_heap(), as);
+    free(as);
 
     sdtx_shutdown();
     sg_shutdown();
@@ -118,11 +133,11 @@ static void event(const sapp_event *ev)
 {
     if (ev->type == SAPP_EVENTTYPE_RESIZED)
     {
-        renderer_resize(&as->renderer, ev->framebuffer_width,
+        renderer_resize(as->renderer, ev->framebuffer_width,
                         ev->framebuffer_height);
     }
 
-    input_handle_event(&as->input, ev);
+    input_handle_event(as->input, ev);
 
     // Allow user to quickly toggle fullscreen with alt-enter.
     if (ev->type == SAPP_EVENTTYPE_KEY_DOWN)

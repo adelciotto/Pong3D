@@ -1,12 +1,12 @@
 #pragma once
 
-#include "zpl_wrap.h"
+#include "HandmadeMath.h"
 #include "sokol_gfx.h"
 
-inline constexpr isize point_lights_count = 1;
-inline constexpr isize draw_calls_max_count = 16;
-inline constexpr isize basic_box_instances_max_count = 1024;
-inline constexpr isize bloom_mips_count = 6;
+inline constexpr int point_lights_count = 1;
+inline constexpr int draw_calls_max_count = 16;
+inline constexpr int basic_box_instances_max_count = 1024;
+inline constexpr int bloom_mips_count = 6;
 
 struct Quad_Geometry
 {
@@ -28,25 +28,25 @@ struct Text_Geometry
 
 struct Directional_Light
 {
-    zpl_vec3 direction;
-    zpl_vec3 diffuse_color;
-    zpl_vec3 ambient_color;
+    HMM_Vec3 direction;
+    HMM_Vec3 diffuse_color;
+    HMM_Vec3 ambient_color;
 };
 
 struct Point_Light
 {
     // TODO: Add a enabled property.
-    zpl_vec3 position;
-    zpl_vec3 diffuse_color;
-    zpl_vec3 ambient_color;
-    f32 falloff;
-    f32 radius;
+    HMM_Vec3 position;
+    HMM_Vec3 diffuse_color;
+    HMM_Vec3 ambient_color;
+    float falloff;
+    float radius;
 };
 
 struct Basic_Box_Instance
 {
-    zpl_mat4 obj_to_world_transform;
-    zpl_vec3 color;
+    HMM_Mat4 obj_to_world_transform;
+    HMM_Vec3 color;
 };
 
 struct Draw_Call
@@ -56,8 +56,8 @@ struct Draw_Call
     int base_element;
     int elements_count;
     int instances_count;
-    zpl_mat4 obj_to_world_transform;
-    zpl_vec3 color;
+    HMM_Mat4 obj_to_world_transform;
+    HMM_Vec3 color;
 };
 
 struct Bloom_Mip
@@ -66,7 +66,7 @@ struct Bloom_Mip
     sg_attachments atts;
     int width;
     int height;
-    zpl_vec2 texel_size;
+    HMM_Vec2 texel_size;
 };
 
 struct Game_Pass
@@ -75,8 +75,8 @@ struct Game_Pass
     // need to add an abstraction.
     Directional_Light dir_light;
     Point_Light point_lights[point_lights_count];
-    zpl_mat4 world_to_view_transform;
-    zpl_mat4 view_to_clip_transform;
+    HMM_Mat4 world_to_view_transform;
+    HMM_Mat4 view_to_clip_transform;
 
     sg_pass_action pass_action;
     sg_image msaa_images[2];
@@ -84,10 +84,10 @@ struct Game_Pass
     sg_image depth_image;
     sg_attachments atts;
     Draw_Call draw_calls[draw_calls_max_count];
-    isize draw_calls_count;
+    int draw_calls_count;
     sg_pipeline phong_pip;
     Basic_Box_Instance basic_instances[basic_box_instances_max_count];
-    isize basic_instances_count;
+    int basic_instances_count;
     sg_buffer basic_instances_buffer;
     sg_pipeline basic_pip;
 };
@@ -120,14 +120,14 @@ struct Renderer
     Combine_Display_Pass combine_display_pass;
 };
 
-void renderer_init(Renderer *r, int framebuffer_width, int framebuffer_height);
-void renderer_resize(Renderer *r, int framebuffer_width,
+void renderer_init(Renderer &r, int framebuffer_width, int framebuffer_height);
+void renderer_resize(Renderer &r, int framebuffer_width,
                      int framebuffer_height);
 
-void renderer_draw_basic_box_instance(Renderer *r, zpl_vec3 position,
-                                      zpl_vec3 rotation, zpl_vec3 scale,
-                                      zpl_vec3 color);
-void renderer_draw_phong_box(Renderer *r, zpl_vec3 position, zpl_vec3 rotation,
-                             zpl_vec3 scale, zpl_vec3 color);
+void renderer_draw_basic_box_instance(Renderer &r, HMM_Vec3 position,
+                                      HMM_Vec3 rotation, HMM_Vec3 scale,
+                                      HMM_Vec3 color);
+void renderer_draw_phong_box(Renderer &r, HMM_Vec3 position, HMM_Vec3 rotation,
+                             HMM_Vec3 scale, HMM_Vec3 color);
 
-void renderer_render(Renderer *r, sg_swapchain swapchain);
+void renderer_render(Renderer &r, sg_swapchain swapchain);

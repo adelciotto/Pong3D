@@ -20,213 +20,208 @@ enum Color
     COLOR_COUNT,
 };
 
-static constexpr zpl_vec3 colors[] = {
-    (zpl_vec3){1.0f, 1.0f, 1.0f},     // COLOR_WHITE
-    (zpl_vec3){0.6f, 0.599f, 0.598f}, // COLOR_GRAY
-    (zpl_vec3){1.0f, 0.01f, 0.008f},  // COLOR_RED
-    (zpl_vec3){1.0f, 0.85f, 0.3f},    // COLOR_WARM_GOLD
-    (zpl_vec3){0.2f, 0.4f, 1.0f},     // COLOR_COOL_BLUE
-    (zpl_vec3){1.0f, 0.2f, 0.2f},     // COLOR_VIBRANT_RED
-    (zpl_vec3){0.6f, 0.2f, 0.8f},     // COLOR_SOFT_PURPLE
-    (zpl_vec3){0.2f, 1.0f, 0.2f},     // COLOR_GREEN
-    (zpl_vec3){0.2f, 1.0f, 1.0f},     // COLOR_CYAN
-    (zpl_vec3){1.0f, 0.0f, 1.0f},     // COLOR_MAGENTA
-    (zpl_vec3){1.0f, 0.5f, 0.0f},     // COLOR_ORANGE
-    (zpl_vec3){1.0f, 0.5f, 1.0f},     // COLOR_BRIGHT_PINK
-    (zpl_vec3){0.4f, 0.7f, 1.0f},     // COLOR_LIGHT_BLUE
+static constexpr HMM_Vec3 colors[COLOR_COUNT] = {
+    {1.0f, 1.0f, 1.0f},     // COLOR_WHITE
+    {0.6f, 0.599f, 0.598f}, // COLOR_GRAY
+    {1.0f, 0.01f, 0.008f},  // COLOR_RED
+    {1.0f, 0.85f, 0.3f},    // COLOR_WARM_GOLD
+    {0.2f, 0.4f, 1.0f},     // COLOR_COOL_BLUE
+    {1.0f, 0.2f, 0.2f},     // COLOR_VIBRANT_RED
+    {0.6f, 0.2f, 0.8f},     // COLOR_SOFT_PURPLE
+    {0.2f, 1.0f, 0.2f},     // COLOR_GREEN
+    {0.2f, 1.0f, 1.0f},     // COLOR_CYAN
+    {1.0f, 0.0f, 1.0f},     // COLOR_MAGENTA
+    {1.0f, 0.5f, 0.0f},     // COLOR_ORANGE
+    {1.0f, 0.5f, 1.0f},     // COLOR_BRIGHT_PINK
+    {0.4f, 0.7f, 1.0f},     // COLOR_LIGHT_BLUE
 };
 
-static constexpr f32 ball_speed = 50.0f;
-static constexpr f32 ball_max_speed = 100.0f;
-static constexpr f32 paddle_speed = 30.0f;
+static constexpr float ball_speed = 50.0f;
+static constexpr float ball_max_speed = 100.0f;
+static constexpr float paddle_speed = 30.0f;
 
 // General functions.
-static f32 pulsate(f32 time, f32 min, f32 max, f32 speed);
-static f32 ease_in_out(f32 time);
-static Bounding_Box bounding_box_to_world_space(zpl_vec3 position,
-                                                zpl_vec3 scale);
-static Bounding_Box bounding_box_for_viewport(Camera *c, f32 z_dist);
-static b8 bounding_box_colliding(Bounding_Box a, Bounding_Box b);
+static float pulsate(float time, float min, float max, float speed);
+static float ease_in_out(float time);
+static float rand_float(rnd_gamerand_t &rand);
+static float rand_float(rnd_gamerand_t &rand, float min, float max);
+static int rand_int(rnd_gamerand_t &rand, int min, int max);
+
+// Bounding box functions.
+static Bounding_Box bounding_box_entity_bounds(HMM_Vec3 position,
+                                               HMM_Vec3 scale);
+static Bounding_Box bounding_box_view_bounds_at_z(const Camera &c,
+                                                  float z_dist);
+static bool bounding_box_colliding(Bounding_Box a, Bounding_Box b);
 
 // Background star functions.
-static void background_star_reset(Game *g, Background_Star *s);
-static void background_star_update(Game *g, Background_Star *s, f32 total_time,
-                                   f32 delta_time);
+static void background_star_reset(Background_Star &star, Game &g);
+static void background_star_update(Background_Star &star, Game &g,
+                                   float total_time, float delta_time);
 
-static void menu_state_init(Game *g)
+static void menu_state_init(Game &g)
 {
-    Menu_State *menu = &g->menu;
+    auto &ball = g.menu.ball;
+    ball.position = HMM_V3(0.0f, 0.0f, -10.0f);
+    ball.scale = HMM_V3(0.66f, 0.66f, 0.66f);
+    ball.color = colors[COLOR_LIGHT_BLUE];
+    ball.glow = 10.0f;
+    ball.bounds = bounding_box_entity_bounds(ball.position, ball.scale);
+    ball.velocity.X =
+        rand_float(g.rand, -ball_max_speed * 0.8f, ball_max_speed * 0.8f);
+    ball.velocity.Y =
+        rand_float(g.rand, -ball_max_speed * 0.5f, ball_max_speed * 0.5f);
 
-    menu->ball.position = zpl_vec3f(0.0f, 0.0f, -10.0f);
-    menu->ball.scale = zpl_vec3f(0.66f, 0.66f, 0.66f);
-    menu->ball.color = colors[COLOR_LIGHT_BLUE];
-    menu->ball.glow = 10.0f;
-    menu->ball.bounds =
-        bounding_box_to_world_space(menu->ball.position, menu->ball.scale);
-    menu->ball.velocity.x = zpl_random_range_f64(
-        &g->rand, -ball_max_speed * 0.8f, ball_max_speed * 0.8f);
-    menu->ball.velocity.y = zpl_random_range_f64(
-        &g->rand, -ball_max_speed * 0.5f, ball_max_speed * 0.5f);
-
-    for (isize i = 0; i < menu_background_stars_count; i += 1)
+    for (int i = 0; i < menu_background_stars_count; i += 1)
     {
-        background_star_reset(g, &menu->background_stars[i]);
+        background_star_reset(g.menu.background_stars[i], g);
     }
 
-    Point_Light *point_light = &g->renderer->game_pass.point_lights[0];
-    point_light->position = menu->ball.position;
-    point_light->diffuse_color = menu->ball.color * menu->ball.glow * 0.5f;
-    point_light->ambient_color = zpl_vec3f_zero();
-    point_light->falloff = 0.125f;
-    point_light->radius = 10.0f;
+    auto &point_light = g.renderer->game_pass.point_lights[0];
+    point_light.position = g.menu.ball.position;
+    point_light.diffuse_color = g.menu.ball.color * g.menu.ball.glow * 0.5f;
+    point_light.ambient_color = HMM_V3(0.0f, 0.0f, 0.0f);
+    point_light.falloff = 0.125f;
+    point_light.radius = 10.0f;
 
-    Directional_Light *dir_light = &g->renderer->game_pass.dir_light;
-    dir_light->direction = zpl_vec3f(-0.2f, 0.0f, -1.0f);
-    dir_light->diffuse_color = zpl_vec3f(0.52f, 0.487f, 0.489f);
-    dir_light->ambient_color = zpl_vec3f(0.005f, 0.004f, 0.004f);
+    auto &dir_light = g.renderer->game_pass.dir_light;
+    dir_light.direction = HMM_V3(-0.2f, 0.0f, -1.0f);
+    dir_light.diffuse_color = HMM_V3(0.52f, 0.487f, 0.489f);
+    dir_light.ambient_color = HMM_V3(0.005f, 0.004f, 0.004f);
 }
 
-static void gameplay_state_init(Game *g)
+static void gameplay_state_init(Game &g)
 {
-    Gameplay_State *gameplay = &g->gameplay;
+    auto view_bounds = bounding_box_view_bounds_at_z(g.camera, g.camera.eye.Z);
 
-    Bounding_Box view_bounds =
-        bounding_box_for_viewport(&g->camera, g->camera.eye.z);
+    auto &boundary_left = g.gameplay.boundary_left;
+    boundary_left.position = HMM_V3(view_bounds.min.X + 6.0f, 0.0f, 0.0f);
+    boundary_left.scale = HMM_V3(1.0f, g.camera.eye.Z * 0.25f + 5.0f, 1.0f);
+    boundary_left.color = colors[COLOR_COOL_BLUE];
+    boundary_left.bounds =
+        bounding_box_entity_bounds(boundary_left.position, boundary_left.scale);
 
-    gameplay->boundary_left.position =
-        zpl_vec3f(view_bounds.aabb.min.x + 6.0f, 0.0f, 0.0f);
-    gameplay->boundary_left.scale =
-        zpl_vec3f(1.0f, g->camera.eye.z * 0.25f + 5.0f, 1.0f);
-    gameplay->boundary_left.color = colors[COLOR_RED];
-    gameplay->boundary_left.glow = 5.0f;
-    gameplay->boundary_left.bounds = bounding_box_to_world_space(
-        gameplay->boundary_left.position, gameplay->boundary_left.scale);
+    auto &boundary_right = g.gameplay.boundary_right;
+    boundary_right.position = HMM_V3(-boundary_left.position.X, 0.0f, 0.0f);
+    boundary_right.scale = boundary_left.scale;
+    boundary_right.color = colors[COLOR_WARM_GOLD];
+    boundary_right.bounds = bounding_box_entity_bounds(boundary_right.position,
+                                                       boundary_right.scale);
 
-    gameplay->boundary_right.position =
-        zpl_vec3f(-gameplay->boundary_left.position.x, 0.0f, 0.0f);
-    gameplay->boundary_right.scale = gameplay->boundary_left.scale;
-    gameplay->boundary_right.color = colors[COLOR_RED];
-    gameplay->boundary_right.glow = 5.0f;
-    gameplay->boundary_right.bounds = bounding_box_to_world_space(
-        gameplay->boundary_right.position, gameplay->boundary_right.scale);
+    auto &boundary_top = g.gameplay.boundary_top;
+    boundary_top.position = HMM_V3(0.0f, boundary_left.scale.Y + 1.0f, 0.0f);
+    boundary_top.scale = HMM_V3(view_bounds.max.X - 5.0f, 1.0f, 1.0f);
+    boundary_top.color = colors[COLOR_GREY];
+    boundary_top.bounds =
+        bounding_box_entity_bounds(boundary_top.position, boundary_top.scale);
 
-    gameplay->boundary_top.position =
-        zpl_vec3f(0.0f, gameplay->boundary_left.scale.y + 1.0f, 0.0f);
-    gameplay->boundary_top.scale =
-        zpl_vec3f(view_bounds.aabb.max.x - 5.0f, 1.0f, 1.0f);
-    gameplay->boundary_top.color = colors[COLOR_GREY];
-    gameplay->boundary_top.bounds = bounding_box_to_world_space(
-        gameplay->boundary_top.position, gameplay->boundary_top.scale);
+    auto &boundary_bottom = g.gameplay.boundary_bottom;
+    boundary_bottom.position = HMM_V3(0.0f, -boundary_top.position.Y, 0.0f);
+    boundary_bottom.scale = boundary_top.scale;
+    boundary_bottom.color = colors[COLOR_GREY];
+    boundary_bottom.bounds = bounding_box_entity_bounds(
+        boundary_bottom.position, boundary_bottom.scale);
 
-    gameplay->boundary_bottom.position =
-        zpl_vec3f(0.0f, -gameplay->boundary_top.position.y, 0.0f);
-    gameplay->boundary_bottom.scale = gameplay->boundary_top.scale;
-    gameplay->boundary_bottom.color = colors[COLOR_GREY];
-    gameplay->boundary_bottom.bounds = bounding_box_to_world_space(
-        gameplay->boundary_bottom.position, gameplay->boundary_bottom.scale);
-
-    gameplay->ball.position = zpl_vec3f(0.0f, 0.0f, 0.0f);
-    gameplay->ball.scale = zpl_vec3f(0.66f, 0.66f, 0.66f);
-    gameplay->ball.color = colors[COLOR_LIGHT_BLUE];
-    gameplay->ball.glow = 10.0f;
-    gameplay->ball.bounds = bounding_box_to_world_space(gameplay->ball.position,
-                                                        gameplay->ball.scale);
+    auto &ball = g.gameplay.ball;
+    ball.position = HMM_V3(0.0f, 0.0f, 0.0f);
+    ball.scale = HMM_V3(0.66f, 0.66f, 0.66f);
+    ball.color = colors[COLOR_LIGHT_BLUE];
+    ball.glow = 10.0f;
+    ball.bounds = bounding_box_entity_bounds(ball.position, ball.scale);
     // TODO: Get rid of this.
-    gameplay->ball.velocity.x = -50.0f;
-    gameplay->ball.velocity.y = -4.0f;
+    ball.velocity.X = -50.0f;
+    ball.velocity.Y = -4.0f;
 
-    gameplay->paddle_left.position =
-        gameplay->boundary_left.position +
-        zpl_vec3f(gameplay->boundary_left.bounds.half_extent.x + 2.0f, 0.0f,
-                  0.0f);
-    gameplay->paddle_left.scale = zpl_vec3f(0.5f, 3.0f, 1.0f);
-    gameplay->paddle_left.color = colors[COLOR_COOL_BLUE];
-    gameplay->paddle_left.glow = 5.0f;
-    gameplay->paddle_left.bounds = bounding_box_to_world_space(
-        gameplay->paddle_left.position, gameplay->paddle_left.scale);
+    auto &paddle_left = g.gameplay.paddle_left;
+    paddle_left.position =
+        boundary_left.position +
+        HMM_V3(boundary_left.bounds.half_extent.X + 2.0f, 0.0f, 0.0f);
+    paddle_left.scale = HMM_V3(0.5f, 3.0f, 1.0f);
+    paddle_left.color = colors[COLOR_COOL_BLUE];
+    paddle_left.glow = 5.0f;
+    paddle_left.bounds =
+        bounding_box_entity_bounds(paddle_left.position, paddle_left.scale);
 
-    gameplay->paddle_right.position =
-        gameplay->boundary_right.position -
-        zpl_vec3f(gameplay->boundary_left.bounds.half_extent.x + 2.0f, 0.0f,
-                  0.0f);
-    gameplay->paddle_right.scale = zpl_vec3f(0.5f, 3.0f, 1.0f);
-    gameplay->paddle_right.color = colors[COLOR_COOL_BLUE];
-    gameplay->paddle_right.glow = 5.0f;
-    gameplay->paddle_right.bounds = bounding_box_to_world_space(
-        gameplay->paddle_right.position, gameplay->paddle_right.scale);
+    auto &paddle_right = g.gameplay.paddle_right;
+    paddle_right.position =
+        boundary_right.position -
+        HMM_V3(boundary_left.bounds.half_extent.X + 2.0f, 0.0f, 0.0f);
+    paddle_right.scale = HMM_V3(0.5f, 3.0f, 1.0f);
+    paddle_right.color = colors[COLOR_WARM_GOLD];
+    paddle_right.glow = 5.0f;
+    paddle_right.bounds =
+        bounding_box_entity_bounds(paddle_right.position, paddle_right.scale);
 
-    for (isize i = 0; i < gameplay_background_stars_count; i += 1)
+    for (int i = 0; i < gameplay_background_stars_count; i += 1)
     {
-        background_star_reset(g, &gameplay->background_stars[i]);
+        background_star_reset(g.gameplay.background_stars[i], g);
     }
 
-    Point_Light *point_light = &g->renderer->game_pass.point_lights[0];
-    point_light->position = gameplay->ball.position;
-    point_light->diffuse_color =
-        gameplay->ball.color * gameplay->ball.glow * 0.5f;
-    point_light->ambient_color = zpl_vec3f_zero();
-    point_light->falloff = 0.125f;
-    point_light->radius = 10.0f;
+    auto &point_light = g.renderer->game_pass.point_lights[0];
+    point_light.position = ball.position;
+    point_light.diffuse_color = ball.color * ball.glow * 0.5f;
+    point_light.ambient_color = HMM_V3(0.0f, 0.0f, 0.0f);
+    point_light.falloff = 0.125f;
+    point_light.radius = 10.0f;
 
-    Directional_Light *dir_light = &g->renderer->game_pass.dir_light;
-    dir_light->direction = zpl_vec3f(-0.03f, 0.3f, -1.0f);
-    dir_light->diffuse_color = zpl_vec3f(1.0f, 1.0f, 1.0f);
-    dir_light->ambient_color = zpl_vec3f(0.005f, 0.004f, 0.004f);
+    auto &dir_light = g.renderer->game_pass.dir_light;
+    dir_light.direction = HMM_V3(-0.03f, 0.3f, -1.0f);
+    dir_light.diffuse_color = HMM_V3(1.0f, 1.0f, 1.0f);
+    dir_light.ambient_color = HMM_V3(0.005f, 0.004f, 0.004f);
 }
 
-void game_init(Game *g, Input *inp, Renderer *r)
+void game_init(Game &g, Input &input, Renderer &renderer, uint32_t rand_seed)
 {
-    ZPL_ASSERT(inp != nullptr);
-    ZPL_ASSERT(r != nullptr);
+    g.input = &input;
+    g.renderer = &renderer;
 
-    g->renderer = r;
-    g->input = inp;
+    rnd_gamerand_seed(&g.rand, rand_seed);
 
-    zpl_random_init(&g->rand);
+    g.camera.eye = HMM_V3(0.0f, 0.0f, 100.0f);
+    g.camera.center = HMM_V3(0.0f, 0.0f, 0.0f);
+    g.camera.up = HMM_V3(0.0f, 1.0f, 0.0f);
+    g.camera.fov_rad = HMM_DegToRad * 40.0f;
+    g.camera.aspect = static_cast<float>(g.renderer->framebuffer_width) /
+                      static_cast<float>(g.renderer->framebuffer_height);
+    g.camera.z_min = 0.1f;
+    g.camera.z_max = 1000.0f;
 
-    g->camera.eye = zpl_vec3f(0.0f, 0.0f, 100.0f);
-    g->camera.center = zpl_vec3f(0.0f, 0.0f, 0.0f);
-    g->camera.up = zpl_vec3f(0.0f, 1.0f, 0.0f);
-    g->camera.fov_rad = zpl_to_radians(40.0f);
-    g->camera.aspect = (f32)g->renderer->framebuffer_width /
-                       (f32)g->renderer->framebuffer_height;
-    g->camera.z_min = 0.1f;
-    g->camera.z_max = 1000.0f;
-
-    g->current_state = GAME_STATE_GAMEPLAY;
+    g.current_state = GAME_STATE_GAMEPLAY;
     gameplay_state_init(g);
 }
 
-static void intro_state_input(Game *g)
+static void intro_state_input(Game &g)
 {
 }
 
-static void gameplay_state_input(Game *g)
+static void gameplay_state_input(Game &g)
 {
-    Gameplay_State *gameplay = &g->gameplay;
-
-    Input_Controller *c0 = &g->input->controllers[INPUT_CONTROLLER_INDEX_0];
-    if (c0->enabled)
+    const auto &controller = g.input->controllers[0];
+    if (controller.enabled)
     {
-        if (input_controller_button_pressed(c0, INPUT_CONTROLLER_BUTTON_UP))
+        if (input_controller_button_pressed(controller,
+                                            INPUT_CONTROLLER_BUTTON_UP))
         {
-            gameplay->paddle_left.y_target = 30.0f;
+            g.gameplay.paddle_left.y_target = 30.0f;
         }
-        if (input_controller_button_pressed(c0, INPUT_CONTROLLER_BUTTON_DOWN))
+        if (input_controller_button_pressed(controller,
+                                            INPUT_CONTROLLER_BUTTON_DOWN))
         {
-            gameplay->paddle_left.y_target = -30.0f;
+            g.gameplay.paddle_left.y_target = -30.0f;
         }
-        if (input_controller_button_up(c0, INPUT_CONTROLLER_BUTTON_UP) &&
-            input_controller_button_up(c0, INPUT_CONTROLLER_BUTTON_DOWN))
+        if (input_controller_button_up(controller,
+                                       INPUT_CONTROLLER_BUTTON_UP) &&
+            input_controller_button_up(controller,
+                                       INPUT_CONTROLLER_BUTTON_DOWN))
         {
-            gameplay->paddle_left.y_target = 0.0f;
+            g.gameplay.paddle_left.y_target = 0.0f;
         }
     }
 }
 
-void game_input(Game *g)
+void game_input(Game &g)
 {
-    switch (g->current_state)
+    switch (g.current_state)
     {
     case GAME_STATE_MENU:
         intro_state_input(g);
@@ -237,301 +232,274 @@ void game_input(Game *g)
     }
 }
 
-static void ball_paddle_bounce(Ball *b, Paddle *p)
+static void ball_paddle_bounce(Ball &ball, const Paddle &paddle)
 {
-    f32 angle = (b->position.y - p->position.y) / p->bounds.half_extent.y;
-    f32 abs_angle = zpl_abs(angle);
+    float angle =
+        (ball.position.Y - paddle.position.Y) / paddle.bounds.half_extent.Y;
+    float abs_angle = HMM_ABS(angle);
 
-    b->velocity.y = ball_speed * zpl_sin(angle);
-    b->velocity.x = ball_speed * zpl_cos(angle);
+    ball.velocity.Y = ball_speed * HMM_SinF(angle);
+    ball.velocity.X = ball_speed * HMM_CosF(angle);
 
-    if (abs_angle > 0.6)
+    if (abs_angle > 0.6f)
     {
-        b->velocity.y *= (1.0f + abs_angle * 0.5f);
-        b->velocity.x *= (1.0f + abs_angle * 0.5f);
+        ball.velocity.Y *= (1.0f + abs_angle * 0.5f);
+        ball.velocity.X *= (1.0f + abs_angle * 0.5f);
     }
 
-    if (b->position.x < p->position.x)
+    if (ball.position.X < paddle.position.X)
     {
-        b->velocity.x *= -1.0f;
+        ball.velocity.X *= -1.0f;
     }
 }
 
-static void ball_move(Ball *b, f32 delta_time)
+static void ball_move(Ball &ball, float delta_time)
 {
-    f32 ball_mag = zpl_vec2_mag(b->velocity);
+    float ball_mag = HMM_LenV2(ball.velocity);
     if (ball_mag > ball_max_speed)
     {
-        zpl_vec2 n;
-        zpl_vec2_norm(&n, b->velocity);
-        b->velocity = n * ball_max_speed;
+        ball.velocity = HMM_NormV2(ball.velocity) * ball_max_speed;
     }
-
-    b->position.xy += b->velocity * delta_time;
+    ball.position.XY += ball.velocity * delta_time;
 }
 
-static void paddle_move(Paddle *p, f32 delta_time)
+static void paddle_move(Paddle &paddle, float delta_time)
 {
-    f32 abs_target = zpl_abs(p->y_target);
-    f32 dir = abs_target / p->y_target;
-    f32 movement = (abs_target > paddle_speed * delta_time) ? paddle_speed * dir
-                                                            : p->y_target;
-    p->position.y += movement * delta_time;
+    float abs_target = HMM_ABS(paddle.y_target);
+    float dir = abs_target / paddle.y_target;
+    float movement = (abs_target > paddle_speed * delta_time)
+                         ? paddle_speed * dir
+                         : paddle.y_target;
+    paddle.position.Y += movement * delta_time;
 }
 
-static void menu_state_sim(Game *g, f32 total_time, f32 delta_time)
+static void menu_state_sim(Game &g, float total_time, float delta_time)
 {
-    Menu_State *menu = &g->menu;
+    auto &ball = g.menu.ball;
 
     // Update.
     {
-        ball_move(&menu->ball, delta_time);
+        ball_move(ball, delta_time);
+        ball.bounds = bounding_box_entity_bounds(ball.position, ball.scale);
 
-        zpl_vec3_lerp(&g->camera.center, g->camera.center,
-                      menu->ball.position * 0.1f, delta_time * 0.8f);
+        g.camera.center = HMM_LerpV3(g.camera.center, delta_time * 0.8f,
+                                     ball.position * 0.1f);
 
-        for (isize i = 0; i < menu_background_stars_count; i += 1)
+        for (int i = 0; i < menu_background_stars_count; i += 1)
         {
-            background_star_update(g, &menu->background_stars[i], total_time,
+            background_star_update(g.menu.background_stars[i], g, total_time,
                                    delta_time);
         }
-
-        menu->ball.bounds =
-            bounding_box_to_world_space(menu->ball.position, menu->ball.scale);
     }
 
     // Collision.
     {
-        Bounding_Box view_bounds = bounding_box_for_viewport(
-            &g->camera, g->camera.eye.z + zpl_abs(menu->ball.position.z));
+        auto view_bounds = bounding_box_view_bounds_at_z(
+            g.camera, g.camera.eye.Z + HMM_ABS(ball.position.Z));
 
-        if (menu->ball.bounds.aabb.min.x <= view_bounds.aabb.min.x ||
-            menu->ball.bounds.aabb.max.x >= view_bounds.aabb.max.x)
+        if (ball.bounds.min.X <= view_bounds.min.X ||
+            ball.bounds.max.X >= view_bounds.max.X)
         {
-            menu->ball.velocity.x *= -1.0f;
+            ball.velocity.X *= -1.0f;
         }
-        if (menu->ball.bounds.aabb.min.y <= view_bounds.aabb.min.y ||
-            menu->ball.bounds.aabb.max.y >= view_bounds.aabb.max.y)
+        if (ball.bounds.min.Y <= view_bounds.min.Y ||
+            ball.bounds.max.Y >= view_bounds.max.Y)
         {
-            menu->ball.velocity.y *= -1.0f;
+            ball.velocity.Y *= -1.0f;
         }
     }
 }
 
-static void gameplay_state_sim(Game *g, f32 total_time, f32 delta_time)
+static void gameplay_state_sim(Game &g, float total_time, float delta_time)
 {
-    Gameplay_State *gameplay = &g->gameplay;
+    auto &ball = g.gameplay.ball;
+    auto &paddle_left = g.gameplay.paddle_left;
+    auto &paddle_right = g.gameplay.paddle_right;
 
     // Update.
     {
-        ball_move(&gameplay->ball, delta_time);
-        paddle_move(&gameplay->paddle_left, delta_time);
-        paddle_move(&gameplay->paddle_right, delta_time);
+        ball_move(ball, delta_time);
+        ball.bounds = bounding_box_entity_bounds(ball.position, ball.scale);
 
-        zpl_vec3_lerp(&g->camera.center, g->camera.center,
-                      gameplay->ball.position * 0.1f, delta_time * 0.8f);
+        paddle_move(paddle_left, delta_time);
+        paddle_left.bounds =
+            bounding_box_entity_bounds(paddle_left.position, paddle_left.scale);
 
-        for (isize i = 0; i < gameplay_background_stars_count; i += 1)
+        paddle_move(paddle_right, delta_time);
+        paddle_right.bounds = bounding_box_entity_bounds(paddle_right.position,
+                                                         paddle_right.scale);
+
+        g.camera.center = HMM_LerpV3(g.camera.center, delta_time * 0.8f,
+                                     ball.position * 0.1f);
+
+        for (int i = 0; i < gameplay_background_stars_count; i += 1)
         {
-            background_star_update(g, &gameplay->background_stars[i],
+            background_star_update(g.gameplay.background_stars[i], g,
                                    total_time, delta_time);
         }
-
-        gameplay->ball.bounds = bounding_box_to_world_space(
-            gameplay->ball.position, gameplay->ball.scale);
-        gameplay->paddle_left.bounds = bounding_box_to_world_space(
-            gameplay->paddle_left.position, gameplay->paddle_left.scale);
-        gameplay->paddle_right.bounds = bounding_box_to_world_space(
-            gameplay->paddle_right.position, gameplay->paddle_right.scale);
     }
 
     // Collision.
     {
+        auto &boundary_left = g.gameplay.boundary_left;
+        auto &boundary_right = g.gameplay.boundary_right;
+        auto &boundary_top = g.gameplay.boundary_top;
+        auto &boundary_bottom = g.gameplay.boundary_bottom;
+
         // Ball to left paddle.
-        if (gameplay->ball.velocity.x < 0.0f &&
-            bounding_box_colliding(gameplay->ball.bounds,
-                                   gameplay->paddle_left.bounds))
+        if (ball.velocity.X < 0.0f &&
+            bounding_box_colliding(ball.bounds, paddle_left.bounds))
         {
-            gameplay->ball.position.x =
-                gameplay->paddle_left.bounds.aabb.max.x +
-                gameplay->ball.bounds.half_extent.x;
-            ball_paddle_bounce(&gameplay->ball, &gameplay->paddle_left);
+            ball.position.X =
+                paddle_left.bounds.max.X + ball.bounds.half_extent.X;
+            ball_paddle_bounce(ball, paddle_left);
         }
         // Ball to right paddle.
-        if (gameplay->ball.velocity.x > 0.0f &&
-            bounding_box_colliding(gameplay->ball.bounds,
-                                   gameplay->paddle_right.bounds))
+        if (ball.velocity.X > 0.0f &&
+            bounding_box_colliding(ball.bounds, paddle_right.bounds))
         {
-            gameplay->ball.position.x =
-                gameplay->paddle_right.bounds.aabb.min.x -
-                gameplay->ball.bounds.half_extent.x;
-            ball_paddle_bounce(&gameplay->ball, &gameplay->paddle_right);
+            ball.position.X =
+                paddle_right.bounds.min.X - ball.bounds.half_extent.X;
+            ball_paddle_bounce(ball, paddle_right);
         }
 
         // Ball to left boundary.
-        if (bounding_box_colliding(gameplay->ball.bounds,
-                                   gameplay->boundary_left.bounds))
+        if (bounding_box_colliding(ball.bounds, boundary_left.bounds))
         {
-            gameplay->ball.position.x =
-                gameplay->boundary_left.bounds.aabb.max.x +
-                gameplay->ball.bounds.half_extent.x;
-            gameplay->ball.velocity.x *= -1.0f;
+            ball.position.X =
+                boundary_left.bounds.max.X + ball.bounds.half_extent.X;
+            ball.velocity.X *= -1.0f;
         }
         // Ball to right boundary.
-        if (bounding_box_colliding(gameplay->ball.bounds,
-                                   gameplay->boundary_right.bounds))
+        if (bounding_box_colliding(ball.bounds, boundary_right.bounds))
         {
-            gameplay->ball.position.x =
-                gameplay->boundary_right.bounds.aabb.min.x -
-                gameplay->ball.bounds.half_extent.x;
-            gameplay->ball.velocity.x *= -1.0f;
+            ball.position.X =
+                boundary_right.bounds.min.X - ball.bounds.half_extent.X;
+            ball.velocity.X *= -1.0f;
         }
         // Ball to top boundary.
-        if (bounding_box_colliding(gameplay->ball.bounds,
-                                   gameplay->boundary_top.bounds))
+        if (bounding_box_colliding(ball.bounds, boundary_top.bounds))
         {
-            gameplay->ball.position.y =
-                gameplay->boundary_top.bounds.aabb.min.y -
-                gameplay->ball.bounds.half_extent.y;
-            gameplay->ball.velocity.y *= -1.0f;
+            ball.position.Y =
+                boundary_top.bounds.min.Y - ball.bounds.half_extent.Y;
+            ball.velocity.Y *= -1.0f;
         }
         // Ball to bottom boundary.
-        if (bounding_box_colliding(gameplay->ball.bounds,
-                                   gameplay->boundary_bottom.bounds))
+        if (bounding_box_colliding(ball.bounds, boundary_bottom.bounds))
         {
-            gameplay->ball.position.y =
-                gameplay->boundary_bottom.bounds.aabb.max.y +
-                gameplay->ball.bounds.half_extent.y;
-            gameplay->ball.velocity.y *= -1.0f;
+            ball.position.Y =
+                boundary_bottom.bounds.max.Y + ball.bounds.half_extent.Y;
+            ball.velocity.Y *= -1.0f;
         }
 
         // Left paddle to top boundary.
-        if (gameplay->paddle_left.y_target > 0.0f &&
-            bounding_box_colliding(gameplay->paddle_left.bounds,
-                                   gameplay->boundary_top.bounds))
+        if (paddle_left.y_target > 0.0f &&
+            bounding_box_colliding(paddle_left.bounds, boundary_top.bounds))
         {
-            gameplay->paddle_left.position.y =
-                gameplay->boundary_top.bounds.aabb.min.y -
-                gameplay->paddle_left.bounds.half_extent.y;
-            gameplay->paddle_left.y_target = 0.0f;
+            paddle_left.position.Y =
+                boundary_top.bounds.min.Y - paddle_left.bounds.half_extent.Y;
+            paddle_left.y_target = 0.0f;
         }
         // Left paddle to bottom boundary.
-        if (gameplay->paddle_left.y_target < 0.0f &&
-            bounding_box_colliding(gameplay->paddle_left.bounds,
-                                   gameplay->boundary_bottom.bounds))
+        if (paddle_left.y_target < 0.0f &&
+            bounding_box_colliding(paddle_left.bounds, boundary_bottom.bounds))
         {
-            gameplay->paddle_left.position.y =
-                gameplay->boundary_bottom.bounds.aabb.max.y +
-                gameplay->paddle_left.bounds.half_extent.y;
-            gameplay->paddle_left.y_target = 0.0f;
+            paddle_left.position.Y =
+                boundary_bottom.bounds.max.Y + paddle_left.bounds.half_extent.Y;
+            paddle_left.y_target = 0.0f;
         }
     }
 }
 
-void game_sim(Game *g, f64 total_duration, f64 sims_per_second)
+void game_sim(Game &g, float total_time_secs, float delta_time_secs)
 {
-    f32 total_time = (f32)total_duration;
-    f32 delta_time = (f32)sims_per_second;
+    g.camera.aspect = static_cast<float>(g.renderer->framebuffer_width) /
+                      static_cast<float>(g.renderer->framebuffer_height);
 
-    g->camera.aspect = (f32)g->renderer->framebuffer_width /
-                       (f32)g->renderer->framebuffer_height;
-
-    switch (g->current_state)
+    switch (g.current_state)
     {
     case GAME_STATE_MENU:
-        menu_state_sim(g, total_time, delta_time);
+        menu_state_sim(g, total_time_secs, delta_time_secs);
         break;
     case GAME_STATE_GAMEPLAY:
-        gameplay_state_sim(g, total_time, delta_time);
+        gameplay_state_sim(g, total_time_secs, delta_time_secs);
         break;
     }
 }
 
-static void menu_state_draw(Game *g)
+static void menu_state_draw(const Game &g)
 {
-    Menu_State *menu = &g->menu;
+    const auto &ball = g.menu.ball;
 
-    Renderer *r = g->renderer;
-    Point_Light *pl = &r->game_pass.point_lights[0];
-    pl->position = menu->ball.position;
-    pl->diffuse_color = menu->ball.color * menu->ball.glow * 0.5f;
+    auto &point_light = g.renderer->game_pass.point_lights[0];
+    point_light.position = ball.position;
+    point_light.diffuse_color = ball.color * ball.glow * 0.5f;
 
-    zpl_mat4_perspective(&r->game_pass.view_to_clip_transform,
-                         g->camera.fov_rad, g->camera.aspect, g->camera.z_min,
-                         g->camera.z_max);
-    zpl_mat4_look_at(&r->game_pass.world_to_view_transform, g->camera.eye,
-                     g->camera.center, g->camera.up);
+    g.renderer->game_pass.world_to_view_transform =
+        HMM_LookAt_RH(g.camera.eye, g.camera.center, g.camera.up);
+    g.renderer->game_pass.view_to_clip_transform = HMM_Perspective_RH_ZO(
+        g.camera.fov_rad, g.camera.aspect, g.camera.z_min, g.camera.z_max);
 
-    renderer_draw_basic_box_instance(r, menu->ball.position, zpl_vec3f_zero(),
-                                     menu->ball.scale,
-                                     menu->ball.color * menu->ball.glow);
+    renderer_draw_basic_box_instance(*g.renderer, ball.position,
+                                     HMM_V3(0.0f, 0.0f, 0.0f), ball.scale,
+                                     ball.color * ball.glow);
 
-    for (isize i = 0; i < menu_background_stars_count; i += 1)
+    for (int i = 0; i < menu_background_stars_count; i += 1)
     {
-        Background_Star *s = &menu->background_stars[i];
+        const auto &star = g.menu.background_stars[i];
         renderer_draw_basic_box_instance(
-            r, s->position, s->rotation,
-            zpl_vec3f(s->scale, s->scale, s->scale), s->color * s->glow);
+            *g.renderer, star.position, star.rotation,
+            HMM_V3(star.scale, star.scale, star.scale), star.color * star.glow);
     }
 }
 
-static void gameplay_state_draw(Game *g)
+static void gameplay_state_draw(const Game &g)
 {
-    Gameplay_State *gameplay = &g->gameplay;
+    const auto &ball = g.gameplay.ball;
 
-    // Update direct renderer state.
-    Renderer *r = g->renderer;
-    r->game_pass.point_lights[0].position = gameplay->ball.position;
-    r->game_pass.point_lights[0].diffuse_color =
-        gameplay->ball.color * gameplay->ball.glow * 0.5f;
+    auto &point_light = g.renderer->game_pass.point_lights[0];
+    point_light.position = ball.position;
+    point_light.diffuse_color = ball.color * ball.glow * 0.5f;
 
-    zpl_mat4_perspective(&r->game_pass.view_to_clip_transform,
-                         g->camera.fov_rad, g->camera.aspect, g->camera.z_min,
-                         g->camera.z_max);
-    zpl_mat4_look_at(&r->game_pass.world_to_view_transform, g->camera.eye,
-                     g->camera.center, g->camera.up);
+    g.renderer->game_pass.world_to_view_transform =
+        HMM_LookAt_RH(g.camera.eye, g.camera.center, g.camera.up);
+    g.renderer->game_pass.view_to_clip_transform = HMM_Perspective_RH_ZO(
+        g.camera.fov_rad, g.camera.aspect, g.camera.z_min, g.camera.z_max);
 
-    renderer_draw_basic_box_instance(
-        r, gameplay->boundary_left.position, zpl_vec3f_zero(),
-        gameplay->boundary_left.scale,
-        gameplay->boundary_left.color * gameplay->boundary_left.glow);
-    renderer_draw_basic_box_instance(
-        r, gameplay->boundary_right.position, zpl_vec3f_zero(),
-        gameplay->boundary_right.scale,
-        gameplay->boundary_right.color * gameplay->boundary_right.glow);
-
-    renderer_draw_phong_box(r, gameplay->boundary_top.position,
-                            zpl_vec3f_zero(), gameplay->boundary_top.scale,
-                            gameplay->boundary_top.color);
-    renderer_draw_phong_box(r, gameplay->boundary_bottom.position,
-                            zpl_vec3f_zero(), gameplay->boundary_bottom.scale,
-                            gameplay->boundary_bottom.color);
-
-    renderer_draw_phong_box(r, gameplay->paddle_left.position, zpl_vec3f_zero(),
-                            gameplay->paddle_left.scale,
-                            gameplay->paddle_left.color *
-                                gameplay->paddle_left.glow);
-    renderer_draw_phong_box(r, gameplay->paddle_right.position,
-                            zpl_vec3f_zero(), gameplay->paddle_right.scale,
-                            gameplay->paddle_right.color *
-                                gameplay->paddle_right.glow);
-
-    renderer_draw_basic_box_instance(
-        r, gameplay->ball.position, zpl_vec3f_zero(), gameplay->ball.scale,
-        gameplay->ball.color * gameplay->ball.glow);
-
-    for (isize i = 0; i < gameplay_background_stars_count; i += 1)
+    auto draw_boundary = [&g](const Boundary &boundary)
     {
-        Background_Star *s = &gameplay->background_stars[i];
+        renderer_draw_phong_box(*g.renderer, boundary.position, {},
+                                boundary.scale, boundary.color);
+    };
+    auto draw_paddle = [&g](const Paddle &paddle)
+    {
+        renderer_draw_phong_box(*g.renderer, paddle.position, {}, paddle.scale,
+                                paddle.color * paddle.glow);
+    };
+
+    draw_boundary(g.gameplay.boundary_left);
+    draw_boundary(g.gameplay.boundary_right);
+    draw_boundary(g.gameplay.boundary_bottom);
+    draw_boundary(g.gameplay.boundary_top);
+
+    draw_paddle(g.gameplay.paddle_left);
+    draw_paddle(g.gameplay.paddle_right);
+
+    renderer_draw_basic_box_instance(*g.renderer, ball.position, {}, ball.scale,
+                                     ball.color * ball.glow);
+
+    for (int i = 0; i < gameplay_background_stars_count; i += 1)
+    {
+        const auto &star = g.gameplay.background_stars[i];
         renderer_draw_basic_box_instance(
-            r, s->position, s->rotation,
-            zpl_vec3f(s->scale, s->scale, s->scale), s->color * s->glow);
+            *g.renderer, star.position, star.rotation,
+            HMM_V3(star.scale, star.scale, star.scale), star.color * star.glow);
     }
 }
 
-void game_draw(Game *g)
+void game_draw(const Game &g)
 {
-    switch (g->current_state)
+    switch (g.current_state)
     {
     case GAME_STATE_MENU:
         menu_state_draw(g);
@@ -542,13 +510,13 @@ void game_draw(Game *g)
     }
 }
 
-static f32 pulsate(f32 time, f32 min, f32 max, f32 speed)
+static float pulsate(float time, float min, float max, float speed)
 {
-    f32 pulse = (zpl_sin(time * speed) + 1.0f) * 0.5f;
+    float pulse = (HMM_SinF(time * speed) + 1.0f) * 0.5f;
     return pulse * (max - min) + min;
 }
 
-static f32 ease_in_out(f32 time)
+static float ease_in_out(float time)
 {
     if (time < 0.5f)
     {
@@ -557,82 +525,95 @@ static f32 ease_in_out(f32 time)
     return -1.0f + (4.0f - 2.0f * time) * time; // Ease out
 }
 
-static Bounding_Box bounding_box_to_world_space(zpl_vec3 position,
-                                                zpl_vec3 scale)
+static float rand_float(rnd_gamerand_t &rand)
 {
-    Bounding_Box bb;
-    bb.aabb.min = position - scale;
-    bb.aabb.max = position + scale;
-    bb.half_extent = (bb.aabb.max - bb.aabb.min) * 0.5f;
-    return bb;
+    return rnd_gamerand_nextf(&rand);
 }
 
-static Bounding_Box bounding_box_for_viewport(Camera *c, f32 z_dist)
+static float rand_float(rnd_gamerand_t &rand, float min, float max)
 {
-    f32 visible_height = 2.0f * z_dist * zpl_tan(c->fov_rad * 0.5f);
-    f32 visible_width = visible_height * c->aspect;
-    Bounding_Box bb;
-    bb.aabb.min.x = -visible_width * 0.5f;
-    bb.aabb.max.x = visible_width * 0.5f;
-    bb.aabb.max.y = visible_height * 0.5f;
-    bb.aabb.min.y = -visible_height * 0.5f;
-    bb.half_extent = (bb.aabb.max - bb.aabb.min) * 0.5f;
-    return bb;
+    return min + rnd_gamerand_nextf(&rand) * (max - min);
 }
 
-static b8 bounding_box_colliding(Bounding_Box a, Bounding_Box b)
+static int rand_int(rnd_gamerand_t &rand, int min, int max)
 {
-    return (a.aabb.max.x >= b.aabb.min.x && a.aabb.min.x <= b.aabb.max.x) &&
-           (a.aabb.max.y >= b.aabb.min.y && a.aabb.min.y <= b.aabb.max.y) &&
-           (a.aabb.max.z >= b.aabb.min.z && a.aabb.min.z <= b.aabb.max.z);
+    return rnd_gamerand_range(&rand, min, max);
 }
 
-static void background_star_reset(Game *g, Background_Star *s)
+static Bounding_Box bounding_box_entity_bounds(HMM_Vec3 position,
+                                               HMM_Vec3 scale)
 {
-    f32 z = zpl_random_range_f64(&g->rand, g->camera.eye.z * 2.0f,
-                                 g->camera.z_max * 0.9f);
-
-    Bounding_Box view_bounds =
-        bounding_box_for_viewport(&g->camera, g->camera.eye.z + z);
-    s->position =
-        zpl_vec3f((f32)zpl_random_range_f64(&g->rand, view_bounds.aabb.min.x,
-                                            view_bounds.aabb.max.x),
-                  (f32)zpl_random_range_f64(&g->rand, view_bounds.aabb.min.y,
-                                            view_bounds.aabb.max.y),
-                  -z);
-    s->rotation_speed =
-        zpl_vec3f((f32)zpl_random_range_f64(&g->rand, 0.0f, 2.5f),
-                  (f32)zpl_random_range_f64(&g->rand, 0.0f, 2.5f),
-                  (f32)zpl_random_range_f64(&g->rand, 0.0f, 2.5f));
-    s->scale = 0.0f;
-    s->color = colors[zpl_random_range_i64(&g->rand, 0, COLOR_COUNT - 1)];
-    s->glow_min = (f32)zpl_random_range_f64(&g->rand, 5.0f, 10.0f);
-    s->glow_max = (f32)zpl_random_range_f64(&g->rand, s->glow_min, 15.0f);
-    s->glow_speed = (f32)zpl_random_range_f64(&g->rand, 0.25f, 5.0f);
-    s->glow = s->glow_min;
-    s->max_lifetime = (f32)zpl_random_range_f64(&g->rand, 2.0f, 10.0f);
-    s->lifetime = 0.0f;
+    Bounding_Box bounds;
+    bounds.min = position - scale;
+    bounds.max = position + scale;
+    bounds.half_extent = (bounds.max - bounds.min) * 0.5f;
+    return bounds;
 }
 
-void background_star_update(Game *g, Background_Star *s, f32 total_time,
-                            f32 delta_time)
+static Bounding_Box bounding_box_view_bounds_at_z(const Camera &c, float z_dist)
 {
-    f32 progress = s->lifetime / s->max_lifetime;
+    float visible_height = 2.0f * z_dist * HMM_TanF(c.fov_rad * 0.5f);
+    float visible_width = visible_height * c.aspect;
+    Bounding_Box bounds;
+    bounds.min.X = -visible_width * 0.5f;
+    bounds.max.X = visible_width * 0.5f;
+    bounds.max.Y = visible_height * 0.5f;
+    bounds.min.Y = -visible_height * 0.5f;
+    bounds.half_extent = (bounds.max - bounds.min) * 0.5f;
+    return bounds;
+}
+
+static bool bounding_box_colliding(Bounding_Box a, Bounding_Box b)
+{
+    return (a.max.X >= b.min.X && a.min.X <= b.max.X) &&
+           (a.max.Y >= b.min.Y && a.min.Y <= b.max.Y) &&
+           (a.max.Z >= b.min.Z && a.min.Z <= b.max.Z);
+}
+
+static void background_star_reset(Background_Star &star, Game &g)
+{
+    float z = rand_float(g.rand, g.camera.eye.Z * 2.0f, g.camera.z_max * 0.9f);
+    auto view_bounds =
+        bounding_box_view_bounds_at_z(g.camera, g.camera.eye.Z + z);
+
+    star.position =
+        HMM_V3(rand_float(g.rand, view_bounds.min.X, view_bounds.max.X),
+               rand_float(g.rand, view_bounds.min.Y, view_bounds.max.Y), -z);
+
+    star.rotation_speed =
+        HMM_V3(rand_float(g.rand, 0.0f, 2.5f), rand_float(g.rand, 0.0f, 2.5f),
+               rand_float(g.rand, 0.0f, 2.5f));
+
+    star.scale = 0.0f;
+    star.color = colors[rand_int(g.rand, 0, COLOR_COUNT - 1)];
+    star.glow_min = rand_float(g.rand, 5.0f, 10.0f);
+    star.glow_max = rand_float(g.rand, star.glow_min, 15.0f);
+    star.glow_speed = rand_float(g.rand, 0.25f, 5.0f);
+    star.glow = star.glow_min;
+    star.max_lifetime = rand_float(g.rand, 2.0f, 10.0f);
+    star.lifetime = 0.0f;
+}
+
+void background_star_update(Background_Star &star, Game &g, float total_time,
+                            float delta_time)
+{
+    float progress = star.lifetime / star.max_lifetime;
     if (progress < 1.0f)
     {
-        s->scale = ease_in_out(progress);
+        star.scale = ease_in_out(progress);
     }
     else
     {
-        s->scale = ease_in_out(2.0f - progress);
+        star.scale = ease_in_out(2.0f - progress);
     }
 
-    s->lifetime += delta_time;
-    if (s->lifetime >= s->max_lifetime * 2.0f)
+    star.lifetime += delta_time;
+    if (star.lifetime >= star.max_lifetime * 2.0f)
     {
-        background_star_reset(g, s);
+        background_star_reset(star, g);
     }
 
-    s->rotation += s->rotation_speed * delta_time;
-    s->glow = pulsate(total_time, s->glow_min, s->glow_max, s->glow_speed);
+    star.rotation += star.rotation_speed * delta_time;
+    star.glow =
+        pulsate(total_time, star.glow_min, star.glow_max, star.glow_speed);
 }

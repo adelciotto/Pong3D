@@ -1,7 +1,7 @@
 @module game_phong
 
-@ctype vec3 zpl_vec3
-@ctype mat4 zpl_mat4
+@ctype vec3 HMM_Vec3
+@ctype mat4 HMM_Mat4
 
 @vs vs
 layout(binding=0) uniform vs_params {

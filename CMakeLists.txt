@@ -7,17 +7,23 @@ if (CMAKE_SYSTEM_NAME STREQUAL Linux)
     find_package(Threads REQUIRED)
 endif ()
 
-#=== LIBRARY: zpl
-add_library(zpl STATIC code/vendor/zpl/zpl.cpp)
-target_include_directories(zpl INTERFACE code/vendor/zpl)
+#=== LIBRARY: HandmadeMath
+add_library(HandmadeMath INTERFACE code/vendor/HandmadeMath/HandmadeMath.h)
+target_include_directories(HandmadeMath INTERFACE code/vendor/HandmadeMath)
+
+#=== LIBRARY: mattiasgustavsson libs
+add_library(libs STATIC code/vendor/libs/libs.cpp code/vendor/libs/rnd.h)
+target_include_directories(libs INTERFACE code/vendor/libs)
 
 #=== LIBRARY: sokol
 # add headers to the the file list because they are useful to have in IDEs
 set(SOKOL_HEADERS
-        code/vendor/sokol/sokol_gfx.h
         code/vendor/sokol/sokol_app.h
+        code/vendor/sokol/sokol_debugtext.h
+        code/vendor/sokol/sokol_gfx.h
+        code/vendor/sokol/sokol_glue.h
         code/vendor/sokol/sokol_log.h
-        code/vendor/sokol/sokol_glue.h)
+        code/vendor/sokol/sokol_time.h)
 if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
     add_library(sokol STATIC code/vendor/sokol/sokol.cpp ${SOKOL_HEADERS})
     target_compile_options(sokol PRIVATE -x objective-c)
@@ -47,7 +53,7 @@ target_sources(pong3d PRIVATE
         code/input.cpp
         code/main.cpp
         code/renderer.cpp)
-target_link_libraries(pong3d zpl sokol)
+target_link_libraries(pong3d HandmadeMath libs sokol)
 
 # Emscripten-specific linker options
 if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)

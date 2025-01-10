@@ -1,9 +1,11 @@
 #pragma once
 
-#include "zpl_wrap.h"
+#include "HandmadeMath.h"
+#include "rnd.h"
+#include <cstdint>
 
-inline constexpr isize menu_background_stars_count = 256;
-inline constexpr isize gameplay_background_stars_count = 128;
+inline constexpr int menu_background_stars_count = 256;
+inline constexpr int gameplay_background_stars_count = 128;
 
 struct Input;
 struct Renderer;
@@ -16,63 +18,63 @@ enum Game_State
 
 struct Bounding_Box
 {
-    zpl_aabb3 aabb;
-    zpl_vec3 half_extent;
+    HMM_Vec3 min;
+    HMM_Vec3 max;
+    HMM_Vec3 half_extent;
 };
 
 struct Boundary
 {
-    zpl_vec3 position;
-    zpl_vec3 scale;
+    HMM_Vec3 position;
+    HMM_Vec3 scale;
     Bounding_Box bounds;
-    zpl_vec3 color;
-    f32 glow;
+    HMM_Vec3 color;
 };
 
 struct Ball
 {
-    zpl_vec3 position;
-    zpl_vec3 scale;
-    zpl_vec2 velocity;
+    HMM_Vec3 position;
+    HMM_Vec3 scale;
+    HMM_Vec2 velocity;
     Bounding_Box bounds;
-    zpl_vec3 color;
-    f32 glow;
+    HMM_Vec3 color;
+    float glow;
 };
 
 struct Paddle
 {
-    zpl_vec3 position;
-    zpl_vec3 scale;
-    f32 y_target;
+    HMM_Vec3 position;
+    HMM_Vec3 scale;
+    float y_target;
     Bounding_Box bounds;
-    zpl_vec3 color;
-    f32 glow;
+    HMM_Vec3 color;
+    float glow;
 };
 
 struct Background_Star
 {
-    zpl_vec3 position;
-    zpl_vec3 rotation;
-    zpl_vec3 rotation_speed;
-    f32 scale;
-    zpl_vec3 color;
-    f32 glow_min;
-    f32 glow_max;
-    f32 glow_speed;
-    f32 glow;
-    f32 max_lifetime;
-    f32 lifetime;
+    HMM_Vec3 position;
+    HMM_Vec3 rotation;
+    HMM_Vec3 rotation_speed;
+    float scale;
+    HMM_Vec3 color;
+    float glow_min;
+    float glow_max;
+    float glow_speed;
+    float glow;
+    float max_lifetime;
+    float lifetime;
 };
 
 struct Camera
 {
-    zpl_vec3 eye;
-    zpl_vec3 center;
-    zpl_vec3 up;
-    f32 fov_rad;
-    f32 aspect;
-    f32 z_min;
-    f32 z_max;
+    HMM_Vec3 eye;
+    HMM_Vec3 center;
+    HMM_Vec3 up;
+    float fov_rad;
+    float aspect;
+    float z_min;
+    float z_max;
 };
 
 struct Menu_State
@@ -97,14 +99,14 @@ struct Game
 {
     Input *input;
     Renderer *renderer;
-    zpl_random rand;
+    rnd_gamerand_t rand;
     Camera camera;
     Game_State current_state;
     Menu_State menu;
     Gameplay_State gameplay;
 };
 
-void game_init(Game *g, Input *inp, Renderer *r);
-void game_input(Game *g);
-void game_sim(Game *g, f64 total_duration, f64 sims_per_second);
-void game_draw(Game *g);
+void game_init(Game &g, Input &input, Renderer &renderer, uint32_t rand_seed);
+void game_input(Game &g);
+void game_sim(Game &g, float total_time_secs, float delta_time_secs);
+void game_draw(const Game &g);
